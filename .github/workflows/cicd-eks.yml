@@ -1,0 +1,154 @@
+name: CI/CD Examen DevOps EKS
+
+on:
+  push:
+    branches: [deploy]
+  workflow_dispatch: {}
+
+env:
+  ECR_REPO_FRONTEND: front-despacho
+  ECR_REPO_VENTAS: ventas-api
+  ECR_REPO_DESPACHOS: despachos-api
+  ECR_REPO_DB: tienda-db
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Define image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Build and push Ventas API image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build \
+            -t ${ECR_REGISTRY}/${ECR_REPO_VENTAS}:${IMAGE_TAG} \
+            back-Ventas_SpringBoot/Springboot-API-REST
+          docker push ${ECR_REGISTRY}/${ECR_REPO_VENTAS}:${IMAGE_TAG}
+
+      - name: Build and push Despachos API image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build \
+            -t ${ECR_REGISTRY}/${ECR_REPO_DESPACHOS}:${IMAGE_TAG} \
+            back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+          docker push ${ECR_REGISTRY}/${ECR_REPO_DESPACHOS}:${IMAGE_TAG}
+
+      - name: Build and push Frontend image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build \
+            --build-arg VITE_VENTAS_API_URL=/api/v1/ventas \
+            --build-arg VITE_DESPACHOS_API_URL=/api/v1/despachos \
+            -t ${ECR_REGISTRY}/${ECR_REPO_FRONTEND}:${IMAGE_TAG} \
+            front_despacho
+          docker push ${ECR_REGISTRY}/${ECR_REPO_FRONTEND}:${IMAGE_TAG}
+
+      - name: Build and push MySQL image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build \
+            -t ${ECR_REGISTRY}/${ECR_REPO_DB}:${IMAGE_TAG} \
+            db
+          docker push ${ECR_REGISTRY}/${ECR_REPO_DB}:${IMAGE_TAG}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Configure kubeconfig for EKS
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+        run: |
+          aws eks update-kubeconfig \
+            --region "$AWS_REGION" \
+            --name "$EKS_CLUSTER_NAME"
+          kubectl config current-context
+
+      - name: Deploy manifests and update images
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          EKS_NAMESPACE: ${{ secrets.EKS_NAMESPACE }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+        run: |
+          NS="${EKS_NAMESPACE:-examen-devops}"
+
+          kubectl apply -f k8s/00-namespace.yaml
+
+          kubectl -n "$NS" create secret generic mysql-secret \
+            --from-literal=MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
+            --from-literal=MYSQL_DATABASE="$MYSQL_DATABASE" \
+            --from-literal=MYSQL_USER="$MYSQL_USER" \
+            --from-literal=MYSQL_PASSWORD="$MYSQL_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl apply -f k8s/02-mysql-pvc.yaml -n "$NS"
+          kubectl apply -f k8s/03-mysql-deployment.yaml -n "$NS"
+          kubectl apply -f k8s/04-mysql-service.yaml -n "$NS"
+
+          kubectl apply -f k8s/05-ventas-deployment.yaml -n "$NS"
+          kubectl apply -f k8s/06-ventas-service.yaml -n "$NS"
+
+          kubectl apply -f k8s/07-despachos-deployment.yaml -n "$NS"
+          kubectl apply -f k8s/08-despachos-service.yaml -n "$NS"
+
+          kubectl apply -f k8s/09-frontend-deployment.yaml -n "$NS"
+          kubectl apply -f k8s/10-frontend-service.yaml -n "$NS"
+
+          kubectl apply -f k8s/11-hpa.yaml -n "$NS"
+          kubectl apply -f k8s/12-ingress.yaml -n "$NS"
+
+          kubectl set image deployment/ventas-api \
+            ventas-api=${ECR_REGISTRY}/${ECR_REPO_VENTAS}:${IMAGE_TAG} \
+            -n "$NS"
+
+          kubectl set image deployment/despachos-api \
+            despachos-api=${ECR_REGISTRY}/${ECR_REPO_DESPACHOS}:${IMAGE_TAG} \
+            -n "$NS"
+
+          kubectl set image deployment/front-despacho \
+            front-despacho=${ECR_REGISTRY}/${ECR_REPO_FRONTEND}:${IMAGE_TAG} \
+            -n "$NS"
+
+          kubectl set image deployment/mysql \
+            mysql=${ECR_REGISTRY}/${ECR_REPO_DB}:${IMAGE_TAG} \
+            -n "$NS"
+
+          kubectl rollout status deployment/ventas-api -n "$NS"
+          kubectl rollout status deployment/despachos-api -n "$NS"
+          kubectl rollout status deployment/front-despacho -n "$NS"
+          kubectl rollout status deployment/mysql -n "$NS"
+
+      - name: Show cluster status
+        env:
+          EKS_NAMESPACE: ${{ secrets.EKS_NAMESPACE }}
+        run: |
+          NS="${EKS_NAMESPACE:-examen-devops}"
+          kubectl get pods -n "$NS"
+          kubectl get svc -n "$NS"
+          kubectl get ingress -n "$NS"
+          kubectl get hpa -n "$NS" || true
