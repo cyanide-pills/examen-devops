@@ -6,10 +6,10 @@ on:
   workflow_dispatch: {}
 
 env:
-  ECR_REPO_FRONTEND: front-despacho
-  ECR_REPO_VENTAS: ventas-api
-  ECR_REPO_DESPACHOS: despachos-api
-  ECR_REPO_DB: tienda-db
+  ECR_REPO_FRONTEND: frontend
+  ECR_REPO_VENTAS: ventas-backend
+  ECR_REPO_DESPACHOS: despachos-backend
+  ECR_REPO_DB: database
 
 jobs:
   build-and-deploy:
@@ -106,7 +106,6 @@ jobs:
             --from-literal=MYSQL_PASSWORD="$MYSQL_PASSWORD" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-          kubectl apply -f k8s/02-mysql-pvc.yaml -n "$NS"
           kubectl apply -f k8s/03-mysql-deployment.yaml -n "$NS"
           kubectl apply -f k8s/04-mysql-service.yaml -n "$NS"
 
@@ -116,6 +115,7 @@ jobs:
           kubectl apply -f k8s/07-despachos-deployment.yaml -n "$NS"
           kubectl apply -f k8s/08-despachos-service.yaml -n "$NS"
 
+          kubectl apply -f k8s/frontend-nginx-config.yaml -n "$NS"
           kubectl apply -f k8s/09-frontend-deployment.yaml -n "$NS"
           kubectl apply -f k8s/10-frontend-service.yaml -n "$NS"
 

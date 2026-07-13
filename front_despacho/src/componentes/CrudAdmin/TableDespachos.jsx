@@ -4,6 +4,16 @@ import { Modal } from "./Modal";
 import { FormCierreDespacho } from "./FormCierreDespacho";
 import { apiEndpoints } from "../../config/api";
 
+const normalizeList = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.data)) return payload.data;
+  if (payload && typeof payload === "object") {
+    const nested = Object.values(payload).find(Array.isArray);
+    return nested || [];
+  }
+  return [];
+};
+
 export const TableDespachos = () => {
   const [despachos, setDespachos] = useState([]);
 
@@ -16,8 +26,10 @@ export const TableDespachos = () => {
         }
       })
       .then((response) => {
-        console.log(response.data);
-        setDespachos(response.data);
+        setDespachos(normalizeList(response.data));
+      })
+      .catch(() => {
+        setDespachos([]);
       });
   };
   // Llamada a la función para obtener los datos cuando el componente se monta

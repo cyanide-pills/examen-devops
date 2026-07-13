@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:8.0
+          image: 409979112766.dkr.ecr.us-east-1.amazonaws.com/database:eks-v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3306
@@ -45,5 +45,4 @@ spec:
               mountPath: /var/lib/mysql
       volumes:
         - name: mysql-data
-          persistentVolumeClaim:
-            claimName: mysql-pvc
+          emptyDir: {}
