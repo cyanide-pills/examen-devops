@@ -8,7 +8,7 @@ on:
 env:
   ECR_REPO_FRONTEND: frontend
   ECR_REPO_VENTAS: ventas-backend
-  ECR_REPO_DESPACHOS: despachos-backend
+  ECR_REPO_DESPACHOS: despacho-backend
   ECR_REPO_DB: database
 
 jobs:
