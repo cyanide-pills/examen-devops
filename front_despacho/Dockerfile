@@ -1,4 +1,4 @@
-# Build stage
+# Build 
 FROM node:20-alpine AS builder
 
 WORKDIR /build
@@ -15,10 +15,10 @@ ENV VITE_DESPACHOS_API_URL=$VITE_DESPACHOS_API_URL
 
 RUN npm run build
 
-# Runtime stage
+# Runtime 
 FROM nginx:1.27-alpine
 
-# Replace PID location to writable path for non-root runtime.
+# Reemplazar la línea de configuración del PID en nginx.conf para que apunte a /tmp/nginx.pid
 RUN sed -i 's|^pid\s.*;|pid /tmp/nginx.pid;|g' /etc/nginx/nginx.conf
 
 RUN rm /etc/nginx/conf.d/default.conf
@@ -41,3 +41,5 @@ USER nginx
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
+
+
