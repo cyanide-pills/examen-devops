@@ -4,6 +4,16 @@ import { FormDespacho } from "./FormDespacho";
 import axios from "axios";
 import { apiEndpoints } from "../../config/api";
 
+const normalizeList = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.data)) return payload.data;
+  if (payload && typeof payload === "object") {
+    const nested = Object.values(payload).find(Array.isArray);
+    return nested || [];
+  }
+  return [];
+};
+
 export const TableCompras = () => {
   const [ventas, setVentas] = useState([]);
 
@@ -14,8 +24,9 @@ export const TableCompras = () => {
         'Accept': 'application/json'
   }
     }).then((response) => {
-      console.log(response.data);
-      setVentas(response.data);
+      setVentas(normalizeList(response.data));
+    }).catch(() => {
+      setVentas([]);
     });
   };
   // Llamada a la función para obtener los datos cuando el componente se monta

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: despachos-api
-          image: 542768639545.dkr.ecr.us-east-1.amazonaws.com/despachos-api:eks-v1
+          image: 409979112766.dkr.ecr.us-east-1.amazonaws.com/despacho-backend:eks-v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
@@ -48,13 +48,17 @@ spec:
               memory: "512Mi"
           readinessProbe:
             httpGet:
-              path: /swagger-ui.html
+              path: /swagger-ui/index.html
               port: 8081
-            initialDelaySeconds: 15
+            initialDelaySeconds: 45
             periodSeconds: 10
+            failureThreshold: 6
+            timeoutSeconds: 3
           livenessProbe:
             httpGet:
-              path: /swagger-ui.html
+              path: /swagger-ui/index.html
               port: 8081
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 15
+            failureThreshold: 5
+            timeoutSeconds: 3

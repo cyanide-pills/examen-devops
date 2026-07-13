@@ -11,8 +11,8 @@ export const PruebaCards = () => {
     <section>
       <div className="flex justify-center">
         <CardComponent
-          title="Consultar Ordenes de compra 💰"
-          description="Revisa las últimas oc realizadas para generar su despacho"
+          title="Consultar Ordenes de compra (Prueba DEPLOY)"
+          description="Se editó el archivo para visualizar su deployment automático gracias al workflow"
           buttonText="Consultar"
           onClick={() => {
             setTablaCompras(true);
