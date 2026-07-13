@@ -11,7 +11,7 @@ export const PruebaCards = () => {
     <section>
       <div className="flex justify-center">
         <CardComponent
-          title="Consultar Ordenes de compra "
+          title="Consultar Ordenes de compra (test workflow cicd) "
           description="Consulta las ventas"
           buttonText="Consultar"
           onClick={() => {
